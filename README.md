@@ -1,2 +1,2 @@
 # Ghost-Protocol
-Know your Guardian
+Know your guardian
