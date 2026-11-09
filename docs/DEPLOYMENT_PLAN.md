@@ -1,6 +1,12 @@
 # Ghost Protocol — Deployment Plan (Phase A)
 
-**Constraint confirmed with the user:** $0 / free-tier only budget. Every decision below is chosen to fit that constraint, with the one real architectural consequence (Render's free tier and scheduled jobs) called out explicitly rather than glossed over.
+**Constraint confirmed with the user:** $0 / free-tier only budget, with one accepted exception (see Domain Strategy below). Every decision below is chosen to fit that constraint, with the two real architectural consequences (Render's free tier and scheduled jobs; cross-domain session cookies) called out explicitly rather than glossed over.
+
+## Domain Strategy
+
+**Decision (security review, pre-M2):** the frontend (Vercel) and backend (Render) are, by default, different registrable domains. The auth design in `SYSTEM_ARCHITECTURE.md` uses a `SameSite=Lax` session cookie — but `Lax` cookies are only sent on top-level navigations, not on cross-origin `fetch`/XHR calls. Left as-is, the frontend's API calls would never actually carry the session cookie, breaking auth entirely once frontend and backend are on separate default subdomains.
+
+**Resolution:** register one custom domain and put both services under it as siblings — e.g. `app.<domain>` (Vercel) and `api.<domain>` (Render). Same registrable domain means the cookie is same-site, so `SameSite=Lax` works exactly as designed in `SYSTEM_ARCHITECTURE.md`, with no CSRF-token layer needed on top. Both Render and Vercel support custom domains on their free tiers at no platform cost — the only expense is the domain registration itself (typically ~$10–15/yr), which is accepted as the one deliberate exception to the $0 constraint. The alternative (stay on default subdomains, switch to `SameSite=None; Secure`, add explicit CSRF tokens to every state-changing endpoint) was considered and rejected — it keeps the literal $0 target but trades it for ongoing CSRF-token implementation and maintenance burden, which is the worse trade for a personal-scale project.
 
 ## Chosen Platforms
 
@@ -34,7 +40,9 @@ Free web service (per Render's own docs, confirmed current): spins down after **
 1. Wakes the sleeping Render instance (the inbound request itself counts as traffic).
 2. Hits an endpoint that **enqueues** `sync_job` rows and returns immediately (per the job-queue design in `SYSTEM_ARCHITECTURE.md`) rather than blocking on the full sync — so job execution continues in-process after the triggering HTTP request completes, without needing a separate worker process.
 
-This keeps the entire stack at $0/month. The tradeoff, made explicitly rather than hidden: sync cadence is bounded by the external ping interval (not a true background cron), and a cold-started instance's first post-wake request is slower — both acceptable for a personal-scale Phase A deployment.
+**Endpoint hardening (security review, pre-M2):** the shared secret must be sent only via a request header (never a query string — query strings land in access logs and `Referer` headers), compared using a constant-time comparison (not `String.equals`, to avoid a timing side-channel), and the endpoint must apply basic failure-rate throttling/lockout on repeated bad-secret attempts. The GitHub Actions workflow itself must never echo the secret in a log step (e.g. no `run: curl ... $SECRET` without `::add-mask::` or equivalent) — workflow logs are visible to anyone with read access to the repo.
+
+This keeps the entire stack at $0/month (plus the one accepted domain-registration cost noted above). The tradeoff, made explicitly rather than hidden: sync cadence is bounded by the external ping interval (not a true background cron), and a cold-started instance's first post-wake request is slower — both acceptable for a personal-scale Phase A deployment.
 
 **Alternative considered and rejected for now:** Render's paid Starter tier (~$7/month, figure corroborated by multiple third-party sources but not confirmed on Render's own pricing page — Unverified exact price) would remove the sleep behavior entirely. Revisit if the GitHub Actions workaround proves unreliable in practice; this is noted in `OPEN_QUESTIONS.md`.
 
@@ -53,7 +61,8 @@ Pipeline stages, each a separate job/step:
 4. Frontend tests (Vitest/Jest + React Testing Library, or equivalent).
 5. Frontend production build (Vite).
 6. Docker image build (backend).
-7. Deployment to Render (backend) and Vercel (frontend) — triggered only on merge to `main`, only after all prior stages pass.
+7. Dependency vulnerability scanning (Dependabot or Renovate for both Maven and npm dependencies, plus an OWASP dependency-check/`npm audit` CI step) — flags known-vulnerable dependencies automatically rather than relying on manual review.
+8. Deployment to Render (backend) and Vercel (frontend) — triggered only on merge to `main`, only after all prior stages pass.
 
 No deployment happens on a failing pipeline. No auto-merge of PRs — merges remain a human decision per the project's working agreement.
 

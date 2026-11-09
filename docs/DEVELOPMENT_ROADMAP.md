@@ -25,6 +25,7 @@ This roadmap follows the milestone shape from the original project brief, adjust
 ## M1 — Architecture and Development Environment
 
 - [ ] **Manual step (user-performed): register the Bungie application** at `bungie.net/en/Application` — confidential OAuth client, redirect URI pointing at the backend's callback route, scopes `ReadBasicUserProfile` + `ReadDestinyInventoryAndVault`. Claude cannot perform this step; it requires the user's own Bungie.net login.
+- [ ] **Manual step (user-performed): register a custom domain** and configure `app.<domain>` (Vercel) + `api.<domain>` (Render) per `DEPLOYMENT_PLAN.md`'s Domain Strategy — required so the session cookie is same-site between frontend and backend. Claude cannot purchase a domain on the user's behalf.
 - [ ] Establish the Spring Boot project structure matching the module boundaries in `SYSTEM_ARCHITECTURE.md`.
 - [ ] Configure Spring Boot, Spring Security, Spring Data JPA/Hibernate, Maven.
 - [ ] Configure the React + TypeScript + Vite frontend project, Tailwind CSS.
