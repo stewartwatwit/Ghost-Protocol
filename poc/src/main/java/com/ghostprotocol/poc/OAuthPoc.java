@@ -146,13 +146,14 @@ public final class OAuthPoc {
                 + "&code=" + urlEncode(code)
                 + "&redirect_uri=" + urlEncode(REDIRECT_URI);
 
-        // X-API-Key omitted here deliberately: the OAuth wiki's own worked example
-        // for this exact endpoint sends only Authorization + Content-Type, and we're
-        // testing whether including it (as the broader "every request" finding
-        // suggested) is actually what caused the first attempt's HTTP 401.
+        // Restored: removing X-API-Key made no difference to the 401 (identical
+        // empty body either way), so it wasn't the deciding factor. Keeping it,
+        // since the OpenAPI spec and GitHub README FAQ both say it's required on
+        // every request.
         HttpRequest request = HttpRequest.newBuilder(URI.create(TOKEN_URL))
                 .header("Authorization", "Basic " + basicAuth)
                 .header("Content-Type", "application/x-www-form-urlencoded")
+                .header("X-API-Key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(formBody))
                 .build();
 
