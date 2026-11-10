@@ -16,7 +16,9 @@ This document records what the **official** Bungie.net API actually supports, ba
 |---|---|---|
 | Grant type | OAuth 2.0 Authorization Code grant only. No other grant type is documented. | **Confirmed** — [OAuth Documentation wiki](https://github.com/Bungie-net/api/wiki/OAuth-Documentation), OpenAPI `securitySchemes.oauth2.flows.authorizationCode` |
 | Authorize URL | `https://www.bungie.net/en/OAuth/Authorize` | **Confirmed** |
-| Token URL | `https://www.bungie.net/Platform/App/OAuth/token/` (same URL for refresh, with `grant_type=refresh_token`) | **Confirmed** |
+| Token URL | `https://www.bungie.net/platform/app/oauth/token/` (lowercase, per the OAuth wiki's own example; same URL for refresh, with `grant_type=refresh_token`) | **Confirmed** |
+| Token exchange request format | `application/x-www-form-urlencoded` POST body with `grant_type=authorization_code&code=...` (+ `redirect_uri` optionally). For a **confidential client**, the wiki's own example authenticates via `Authorization: Basic base64(client_id:client_secret)` rather than a `client_secret` body param (the body param is documented only as the alternative when not using the header). `scope` must be omitted from this request too. | **Confirmed** — [OAuth Documentation wiki](https://github.com/Bungie-net/api/wiki/OAuth-Documentation) (page dated 2021-01-06; re-verify if the PoC's actual exchange fails) |
+| `X-API-Key` on the token-exchange request specifically | The wiki's token-exchange example doesn't show this header (only a separate example `GET /resource` call does). The broader "required on every request" finding above is sourced from the OpenAPI spec and GitHub README, not this specific endpoint's example. **The PoC must test both ways** — this is a real gap between two official sources, not resolved by either alone. | **Unverified (partial)** |
 | `scope` request param | Must be **omitted** — scopes are fixed per registered application in the Bungie portal, not chosen per-request. Including it causes a request failure. | **Confirmed** |
 | `redirect_uri` | One URL registered per application; must match exactly (including case) if sent at all. Cannot be set dynamically per request. **The registration form rejects `http` outright** ("must be a fully qualified URL using any scheme except http") — undocumented in the official API reference, discovered during actual registration. Local development therefore needs an HTTPS callback listener (e.g. via `mkcert`), not plain HTTP, even on localhost. | **Confirmed** |
 | PKCE support | Not mentioned anywhere in official docs. | **Unverified** — treat as unsupported |
@@ -26,7 +28,7 @@ This document records what the **official** Bungie.net API actually supports, ba
 | Access token lifetime | Example in docs: 3,600s (1 hour). Presented as an example response value, not a contractual guarantee. | **Assumption** (plan for it, verify empirically) |
 | Refresh token lifetime | Example in docs: 7,776,000s (90 days). Same caveat. | **Assumption** |
 | Token revocation | Users can revoke an app's access from their Bungie.net account; this takes effect on the app's next refresh attempt. Expired/invalid tokens return HTTP 401. | **Confirmed** |
-| Exact confidential/public toggle location on the registration form | Could not be inspected without logging into bungie.net (registration requires a session). | **Unverified** — confirm during manual app registration (Roadmap M1) |
+| Exact confidential/public toggle location on the registration form | Resolved: the form does offer a Confidential option alongside Public; the user selected Confidential. | **Confirmed** (2026-11-09) |
 
 ### Scopes
 

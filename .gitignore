@@ -6,6 +6,8 @@ poc/tools/
 poc/*.p12
 poc/*.pem
 poc/.env
+poc/tokens.json
+poc/target/
 
 # Build artifacts
 *.class
