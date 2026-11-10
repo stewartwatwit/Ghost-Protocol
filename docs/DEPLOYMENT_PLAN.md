@@ -8,6 +8,8 @@
 
 **Resolution:** register one custom domain and put both services under it as siblings — e.g. `app.<domain>` (Vercel) and `api.<domain>` (Render). Same registrable domain means the cookie is same-site, so `SameSite=Lax` works exactly as designed in `SYSTEM_ARCHITECTURE.md`, with no CSRF-token layer needed on top. Both Render and Vercel support custom domains on their free tiers at no platform cost — the only expense is the domain registration itself (typically ~$10–15/yr), which is accepted as the one deliberate exception to the $0 constraint. The alternative (stay on default subdomains, switch to `SameSite=None; Secure`, add explicit CSRF tokens to every state-changing endpoint) was considered and rejected — it keeps the literal $0 target but trades it for ongoing CSRF-token implementation and maintenance burden, which is the worse trade for a personal-scale project.
 
+**Timing:** the domain only needs to exist by first production deployment (`DEVELOPMENT_ROADMAP.md` M9). The PoC and all of local development (M0-M8) run on `localhost`, where frontend/backend ports are same-site regardless — this decision was resolved early (pre-M2) because it affects the auth design itself, not because the domain must be purchased early.
+
 ## Chosen Platforms
 
 | Component | Platform | Tier |
