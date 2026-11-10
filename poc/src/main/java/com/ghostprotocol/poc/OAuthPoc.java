@@ -36,7 +36,8 @@ public final class OAuthPoc {
 
     private static final String AUTHORIZE_URL = "https://www.bungie.net/en/oauth/authorize";
     private static final String TOKEN_URL = "https://www.bungie.net/platform/app/oauth/token/";
-    private static final String REDIRECT_URI = "https://localhost:8080/callback";
+    private static final String REDIRECT_URI = "https://localhost:8443/callback";
+    private static final int CALLBACK_PORT = 8443;
     // Paths are relative to the poc/ directory itself — mvn exec:java runs
     // with the working directory set to the Maven module root, not the repo root.
     private static final Path ENV_FILE = Path.of(".env");
@@ -86,7 +87,7 @@ public final class OAuthPoc {
     private static HttpsServer startServer(String expectedState, CompletableFuture<CallbackResult> callback)
             throws Exception {
         SSLContext sslContext = buildSslContext();
-        HttpsServer server = HttpsServer.create(new InetSocketAddress("localhost", 8080), 0);
+        HttpsServer server = HttpsServer.create(new InetSocketAddress("localhost", CALLBACK_PORT), 0);
         server.setHttpsConfigurator(new HttpsConfigurator(sslContext));
         server.createContext("/callback", exchange -> {
             Map<String, String> params = parseQuery(exchange.getRequestURI());
