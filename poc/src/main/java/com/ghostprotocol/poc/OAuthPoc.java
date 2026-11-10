@@ -146,18 +146,24 @@ public final class OAuthPoc {
                 + "&code=" + urlEncode(code)
                 + "&redirect_uri=" + urlEncode(REDIRECT_URI);
 
+        // X-API-Key omitted here deliberately: the OAuth wiki's own worked example
+        // for this exact endpoint sends only Authorization + Content-Type, and we're
+        // testing whether including it (as the broader "every request" finding
+        // suggested) is actually what caused the first attempt's HTTP 401.
         HttpRequest request = HttpRequest.newBuilder(URI.create(TOKEN_URL))
                 .header("Authorization", "Basic " + basicAuth)
                 .header("Content-Type", "application/x-www-form-urlencoded")
-                .header("X-API-Key", apiKey)
                 .POST(HttpRequest.BodyPublishers.ofString(formBody))
                 .build();
 
         HttpClient client = HttpClient.newHttpClient();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         System.out.println("Token endpoint responded: HTTP " + response.statusCode());
+        System.out.println("Response headers: " + response.headers().map());
         if (response.statusCode() != 200) {
-            throw new IOException("Token exchange failed: HTTP " + response.statusCode() + " - " + response.body());
+            throw new IOException("Token exchange failed: HTTP " + response.statusCode()
+                    + " - body=[" + response.body() + "]"
+                    + " (apiKey loaded: " + (apiKey != null && !apiKey.isBlank()) + ", length=" + apiKey.length() + ")");
         }
         return new ObjectMapper().readTree(response.body());
     }
