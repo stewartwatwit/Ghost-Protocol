@@ -18,7 +18,7 @@ This document records what the **official** Bungie.net API actually supports, ba
 | Authorize URL | `https://www.bungie.net/en/OAuth/Authorize` | **Confirmed** |
 | Token URL | `https://www.bungie.net/Platform/App/OAuth/token/` (same URL for refresh, with `grant_type=refresh_token`) | **Confirmed** |
 | `scope` request param | Must be **omitted** — scopes are fixed per registered application in the Bungie portal, not chosen per-request. Including it causes a request failure. | **Confirmed** |
-| `redirect_uri` | One URL registered per application; must match exactly (including case) if sent at all. Cannot be set dynamically per request. | **Confirmed** |
+| `redirect_uri` | One URL registered per application; must match exactly (including case) if sent at all. Cannot be set dynamically per request. **The registration form rejects `http` outright** ("must be a fully qualified URL using any scheme except http") — undocumented in the official API reference, discovered during actual registration. Local development therefore needs an HTTPS callback listener (e.g. via `mkcert`), not plain HTTP, even on localhost. | **Confirmed** |
 | PKCE support | Not mentioned anywhere in official docs. | **Unverified** — treat as unsupported |
 | Embedded webviews | Bungie recommends the system browser (SFSafariViewController / Chrome Custom Tabs), not in-app webviews/iframes, for the OAuth redirect. | **Confirmed** |
 | API key requirement | A separate `X-API-Key` header (from app registration) is required on **every** request, OAuth or not. Keys and OAuth client IDs are tied together — the key used to request a token must be the same key used on subsequent calls with that token. | **Confirmed** — OpenAPI `securitySchemes.apiKey`, GitHub README FAQ |
