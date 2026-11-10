@@ -37,9 +37,11 @@ public final class OAuthPoc {
     private static final String AUTHORIZE_URL = "https://www.bungie.net/en/oauth/authorize";
     private static final String TOKEN_URL = "https://www.bungie.net/platform/app/oauth/token/";
     private static final String REDIRECT_URI = "https://localhost:8080/callback";
-    private static final Path ENV_FILE = Path.of("poc", ".env");
-    private static final Path KEYSTORE_FILE = Path.of("poc", "localhost.p12");
-    private static final Path TOKENS_FILE = Path.of("poc", "tokens.json");
+    // Paths are relative to the poc/ directory itself — mvn exec:java runs
+    // with the working directory set to the Maven module root, not the repo root.
+    private static final Path ENV_FILE = Path.of(".env");
+    private static final Path KEYSTORE_FILE = Path.of("localhost.p12");
+    private static final Path TOKENS_FILE = Path.of("tokens.json");
     private static final String KEYSTORE_PASSWORD = "changeit";
 
     public static void main(String[] args) throws Exception {
