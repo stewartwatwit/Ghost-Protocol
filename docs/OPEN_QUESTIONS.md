@@ -23,7 +23,7 @@ Items that require the user's input, or that the proof-of-concept (Roadmap M0) m
 
 ## Bungie Application Registration (resolved during Roadmap M1)
 
-11. **OAuth client-type selection UI.** The confidential-vs-public client toggle's exact location on the `bungie.net/en/Application` registration form couldn't be inspected without logging in. Confirm during the user's manual registration step (M1) that a confidential client is actually selected — this is required for refresh tokens to be issued at all.
+11. ~~**OAuth client-type selection UI.**~~ **Resolved (2026-11-09).** The registration form does offer a Confidential option alongside Public, and the user selected Confidential — refresh tokens should be issuable as designed.
 
 ## Phase B (deferred, not blocking Phase A)
 

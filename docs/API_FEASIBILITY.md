@@ -16,17 +16,19 @@ This document records what the **official** Bungie.net API actually supports, ba
 |---|---|---|
 | Grant type | OAuth 2.0 Authorization Code grant only. No other grant type is documented. | **Confirmed** — [OAuth Documentation wiki](https://github.com/Bungie-net/api/wiki/OAuth-Documentation), OpenAPI `securitySchemes.oauth2.flows.authorizationCode` |
 | Authorize URL | `https://www.bungie.net/en/OAuth/Authorize` | **Confirmed** |
-| Token URL | `https://www.bungie.net/Platform/App/OAuth/token/` (same URL for refresh, with `grant_type=refresh_token`) | **Confirmed** |
+| Token URL | `https://www.bungie.net/platform/app/oauth/token/` (lowercase, per the OAuth wiki's own example; same URL for refresh, with `grant_type=refresh_token`) | **Confirmed** |
+| Token exchange request format | `application/x-www-form-urlencoded` POST body with `grant_type=authorization_code&code=...` (+ `redirect_uri` optionally). For a **confidential client**, the wiki's own example authenticates via `Authorization: Basic base64(client_id:client_secret)` rather than a `client_secret` body param (the body param is documented only as the alternative when not using the header). `scope` must be omitted from this request too. | **Confirmed** — [OAuth Documentation wiki](https://github.com/Bungie-net/api/wiki/OAuth-Documentation) (page dated 2021-01-06; re-verify if the PoC's actual exchange fails) |
+| `X-API-Key` on the token-exchange request specifically | The M0 PoC's real token exchange succeeded with this header included. An initial attempt without it also failed, but with a 401 that turned out to be caused by a bad client secret, not the missing header — so that specific test was confounded and **whether the header is strictly required here remains formally untested**. Practical guidance unchanged: always include it. | **Confirmed working with the header; "is it required" still technically open** |
 | `scope` request param | Must be **omitted** — scopes are fixed per registered application in the Bungie portal, not chosen per-request. Including it causes a request failure. | **Confirmed** |
-| `redirect_uri` | One URL registered per application; must match exactly (including case) if sent at all. Cannot be set dynamically per request. | **Confirmed** |
+| `redirect_uri` | One URL registered per application; must match exactly (including case) if sent at all. Cannot be set dynamically per request. **The registration form rejects `http` outright** ("must be a fully qualified URL using any scheme except http") — undocumented in the official API reference, discovered during actual registration. Local development therefore needs an HTTPS callback listener (e.g. via `mkcert`), not plain HTTP, even on localhost. | **Confirmed** |
 | PKCE support | Not mentioned anywhere in official docs. | **Unverified** — treat as unsupported |
 | Embedded webviews | Bungie recommends the system browser (SFSafariViewController / Chrome Custom Tabs), not in-app webviews/iframes, for the OAuth redirect. | **Confirmed** |
 | API key requirement | A separate `X-API-Key` header (from app registration) is required on **every** request, OAuth or not. Keys and OAuth client IDs are tied together — the key used to request a token must be the same key used on subsequent calls with that token. | **Confirmed** — OpenAPI `securitySchemes.apiKey`, GitHub README FAQ |
 | Confidential vs. public client | RFC 6749 §2.1 distinction. **Only confidential clients receive refresh tokens.** Public clients get neither a client secret nor a refresh token. | **Confirmed** — OAuth wiki |
-| Access token lifetime | Example in docs: 3,600s (1 hour). Presented as an example response value, not a contractual guarantee. | **Assumption** (plan for it, verify empirically) |
-| Refresh token lifetime | Example in docs: 7,776,000s (90 days). Same caveat. | **Assumption** |
+| Access token lifetime | `expires_in: 3600` (1 hour) — observed on a real token exchange via the M0 PoC, 2026-11-09. Matches the documented example exactly; still not a contractual guarantee for all cases, but no longer just an assumption. | **Confirmed** (PoC-observed) |
+| Refresh token lifetime | `refresh_expires_in: 7776000` (90 days) — observed on the same real token exchange. Matches the documented example exactly. | **Confirmed** (PoC-observed) |
 | Token revocation | Users can revoke an app's access from their Bungie.net account; this takes effect on the app's next refresh attempt. Expired/invalid tokens return HTTP 401. | **Confirmed** |
-| Exact confidential/public toggle location on the registration form | Could not be inspected without logging into bungie.net (registration requires a session). | **Unverified** — confirm during manual app registration (Roadmap M1) |
+| Exact confidential/public toggle location on the registration form | Resolved: the form does offer a Confidential option alongside Public; the user selected Confidential. | **Confirmed** (2026-11-09) |
 
 ### Scopes
 

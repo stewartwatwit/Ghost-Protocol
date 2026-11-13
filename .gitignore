@@ -1,0 +1,14 @@
+# Obsidian vault (personal notes, not project source)
+Ghost Protocol/
+
+# Local dev tooling and generated TLS material (never commit private keys)
+poc/tools/
+poc/*.p12
+poc/*.pem
+poc/.env
+poc/tokens.json
+poc/target/
+
+# Build artifacts
+*.class
+target/

@@ -24,8 +24,7 @@ This roadmap follows the milestone shape from the original project brief, adjust
 
 ## M1 — Architecture and Development Environment
 
-- [ ] **Manual step (user-performed): register the Bungie application** at `bungie.net/en/Application` — confidential OAuth client, redirect URI pointing at the backend's callback route, scopes `ReadBasicUserProfile` + `ReadDestinyInventoryAndVault`. Claude cannot perform this step; it requires the user's own Bungie.net login.
-- [ ] **Manual step (user-performed): register a custom domain** and configure `app.<domain>` (Vercel) + `api.<domain>` (Render) per `DEPLOYMENT_PLAN.md`'s Domain Strategy — required so the session cookie is same-site between frontend and backend. Claude cannot purchase a domain on the user's behalf.
+- [x] **Manual step (user-performed): register the Bungie application** at `bungie.net/en/Application` — confidential OAuth client, redirect URI pointing at `https://localhost:8080/callback` for local development, scope `ReadDestinyInventoryAndVault` (basic profile read is automatic). Done 2026-11-09, ahead of schedule as an M0 PoC prerequisite. **Confirmed finding:** Bungie's form rejects `http` redirect URIs outright ("must be a fully qualified URL using any scheme except http") — even for localhost — so the PoC's local callback listener must run over HTTPS via a locally-trusted cert (`mkcert`), not plain HTTP. **Note:** the redirect URI will need to be updated (or a second application registered) once production deployment begins at M9, since Bungie requires an exact match and doesn't support setting it dynamically per request.
 - [ ] Establish the Spring Boot project structure matching the module boundaries in `SYSTEM_ARCHITECTURE.md`.
 - [ ] Configure Spring Boot, Spring Security, Spring Data JPA/Hibernate, Maven.
 - [ ] Configure the React + TypeScript + Vite frontend project, Tailwind CSS.
@@ -88,6 +87,8 @@ This roadmap follows the milestone shape from the original project brief, adjust
 
 ## M9 — Deployment
 
+- [ ] **Manual step (user-performed): register a custom domain** and configure `app.<domain>` (Vercel) + `api.<domain>` (Render) per `DEPLOYMENT_PLAN.md`'s Domain Strategy — required so the session cookie is same-site between frontend and backend once they're on separate hosted platforms. Claude cannot purchase a domain on the user's behalf. Not needed before this milestone — local development (M1-M8) runs entirely on `localhost`, where frontend/backend ports are same-site regardless of this step.
+- [ ] Update the Bungie application's registered redirect URI (or register a second application) to point at the production callback URL, per the note in M1.
 - [ ] Stand up production Neon database, Render backend service, Vercel frontend deployment per `DEPLOYMENT_PLAN.md`.
 - [ ] Configure GitHub Actions CI/CD: backend build/test, frontend build/test, Docker image build, deploy on merge to `main`.
 - [ ] Implement demo mode with synthetic fixture data, isolated from any real-user code path.
