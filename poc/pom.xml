@@ -20,6 +20,9 @@
     <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jackson.version>2.18.1</jackson.version>
+    <!-- Default mainClass for `mvn exec:java`; override per PoC step with
+         -Dexec.mainClass=com.ghostprotocol.poc.<Step> -->
+    <exec.mainClass>com.ghostprotocol.poc.OAuthPoc</exec.mainClass>
   </properties>
 
   <dependencies>
@@ -37,7 +40,7 @@
         <artifactId>exec-maven-plugin</artifactId>
         <version>3.4.1</version>
         <configuration>
-          <mainClass>com.ghostprotocol.poc.OAuthPoc</mainClass>
+          <mainClass>${exec.mainClass}</mainClass>
         </configuration>
       </plugin>
     </plugins>
