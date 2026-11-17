@@ -26,15 +26,18 @@ import java.util.Set;
  * entry belonging to our own account/character within it and specifically
  * inspects {@code extended.weapons} rather than the whole PGCR body.
  *
- * Open question #5 needs a three-way answer per category, not just a
- * boolean: the {@code extended.weapons} field can be (a) absent entirely,
- * (b) present but an empty array (legitimately zero weapon kills that
- * outing, e.g. a non-combat encounter), or (c) present and populated. Only
- * (a) is actually evidence against the feature; (b) is a real possible
- * value, not missing data, per the "no data" vs. "zero" distinction this
- * project treats as a hard requirement elsewhere (PRODUCT_REQUIREMENTS.md
- * §5-6). This file keeps those three outcomes distinct throughout rather
- * than collapsing to present/absent.
+ * Open question #5 needs more than a boolean per category: the
+ * {@code extended.weapons} field can be (a) absent entirely, (b) present
+ * but an empty array (legitimately zero weapon kills that outing, e.g. a
+ * non-combat encounter), or (c) present and populated. Only (a) is actually
+ * evidence against the feature; (b) is a real possible value, not missing
+ * data, per the "no data" vs. "zero" distinction this project treats as a
+ * hard requirement elsewhere (PRODUCT_REQUIREMENTS.md §5-6). A fourth,
+ * distinct outcome — failing to even locate our own entry in the PGCR
+ * (OWN_ENTRY_NOT_FOUND) — is kept separate from (a) rather than folded into
+ * it, since that's a lookup failure, not evidence the field is missing;
+ * collapsing the two would corrupt the one finding this file exists to
+ * produce.
  *
  * Also opportunistically resolves open question #7 by printing the exact
  * key names observed inside each weapon's {@code values} dict, across every
@@ -82,7 +85,7 @@ public final class WeaponDataPoc {
     }
 
     private enum WeaponDataStatus {
-        ABSENT_FIELD, EMPTY_ARRAY, POPULATED
+        OWN_ENTRY_NOT_FOUND, ABSENT_FIELD, EMPTY_ARRAY, POPULATED
     }
 
     public static void main(String[] args) throws Exception {
@@ -157,8 +160,10 @@ public final class WeaponDataPoc {
             System.out.println("--- " + category + " instanceId=" + sample.instanceId + " ---");
             if (ownEntry == null) {
                 System.out.println("No entry in this PGCR matched membershipId=" + membershipId + " characterId="
-                        + characterId + " — can't evaluate extended.weapons for our own participation.");
-                findings.put(category, new WeaponFinding(WeaponDataStatus.ABSENT_FIELD, 0, List.of()));
+                        + characterId + " — can't evaluate extended.weapons for our own participation. "
+                        + "Not the same thing as extended.weapons being absent; flagging separately so this "
+                        + "doesn't get misread as evidence against weapon-data coverage.");
+                findings.put(category, new WeaponFinding(WeaponDataStatus.OWN_ENTRY_NOT_FOUND, 0, List.of()));
                 continue;
             }
 
