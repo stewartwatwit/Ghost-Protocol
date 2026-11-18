@@ -433,7 +433,7 @@ public final class WeaponDataPoc {
                 .header("X-API-Key", apiKey)
                 .GET()
                 .build();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = sendWithThrottleRetry(client, request, url);
         if (response.statusCode() != 200) {
             throw new IllegalStateException("Request to " + url + " failed: HTTP " + response.statusCode()
                     + " (access tokens expire after 1 hour — if this is a 401, re-run OAuthPoc for a fresh one) - "
