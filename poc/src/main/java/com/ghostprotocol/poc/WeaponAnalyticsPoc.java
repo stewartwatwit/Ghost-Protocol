@@ -59,13 +59,19 @@ import java.util.Set;
  * a manifest lookup key, and the raw vs. normalized text is logged whenever
  * they differ so a real run can confirm whether this actually occurs.
  *
- * The per-weapon {@code values} dict's key names are still unconfirmed
- * (OPEN_QUESTIONS.md #7), so the "usage weight" used for ranking is a
- * documented heuristic, not a schema fact: the first {@code values} key
- * whose name contains "kill" (case-insensitive) is used as a weight if
- * present, else each appearance counts as weight 1. Locale is hardcoded to
- * "en" and results are printed only (no persistence) — both documented
- * simplifications for this PoC step, not a production design.
+ * The per-weapon {@code values} dict's key names were unconfirmed as of
+ * OPEN_QUESTIONS.md #7, but step 6's real run has since confirmed them (see
+ * API_FEASIBILITY.md section 4's weapon-usage row): {@code uniqueWeaponKills}
+ * is the real per-weapon kill count, so it's used directly as the ranking
+ * weight when present. Only if it's absent (e.g. a schema variant this PoC
+ * hasn't seen) does {@link #findKillWeight} fall back to the first other
+ * {@code values} key whose name contains "kill", and if even that's absent,
+ * each appearance counts as weight 1 — both fallbacks are flagged in the
+ * output (per-weapon during collection, and per-weapon again in the final
+ * ranking) so a reader can't mistake a fallback weight for a real kill
+ * count. Locale is hardcoded to "en" and results are printed only (no
+ * persistence) — both documented simplifications for this PoC step, not a
+ * production design.
  */
 public final class WeaponAnalyticsPoc {
 
@@ -82,6 +88,8 @@ public final class WeaponAnalyticsPoc {
     private static final String BUNGIE_ROOT = "https://www.bungie.net";
     private static final String MANIFEST_LOCALE = "en";
     private static final String ITEM_DEFINITION_TABLE = "DestinyInventoryItemDefinition";
+    // Confirmed by step 6's real run across all six sampled modes — see API_FEASIBILITY.md section 4.
+    private static final String CONFIRMED_KILL_COUNT_KEY = "uniqueWeaponKills";
 
     private static final int PAGE_SIZE = 250;
     private static final int SAFETY_CAP_PAGES = 200;
@@ -90,6 +98,7 @@ public final class WeaponAnalyticsPoc {
     private static final long MANIFEST_BYTE_CAP = 500_000_000L; // ~500MB — generous but finite; see class doc.
     private static final Duration MANIFEST_REQUEST_TIMEOUT = Duration.ofMinutes(10);
     private static final int TOP_N = 3;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private enum ActivityCategory {
         RAID(4), STRIKE(3), PVP(5), GAMBIT(63), DUNGEON(82), TRIALS_OF_OSIRIS(84);
@@ -256,12 +265,20 @@ public final class WeaponAnalyticsPoc {
 
                 WeightResult weight = findKillWeight(weapon.path("values"));
 
-                tally.computeIfAbsent(unsignedKey, k -> new WeaponTally(rawReferenceId)).add(weight.weight);
+                tally.computeIfAbsent(unsignedKey, k -> new WeaponTally(rawReferenceId)).add(weight.weight(),
+                        weight.confirmed());
 
                 String hashNote = unsignedKey.equals(rawReferenceId) ? "" : " (normalized from " + rawReferenceId + ")";
-                String weightNote = weight.sourceKey != null
-                        ? "weight=" + weight.weight + " (values." + weight.sourceKey + ".basic.value)"
-                        : "weight=1.0 (no values key containing \"kill\" found — fallback)";
+                String weightNote;
+                if (weight.confirmed()) {
+                    weightNote = "weight=" + weight.weight() + " (values." + weight.sourceKey() + ".basic.value)";
+                } else if (weight.sourceKey() != null) {
+                    weightNote = "weight=" + weight.weight() + " (values." + weight.sourceKey() + ".basic.value — "
+                            + "heuristic key, not the confirmed " + CONFIRMED_KILL_COUNT_KEY + ")";
+                } else {
+                    weightNote = "weight=1.0 (no " + CONFIRMED_KILL_COUNT_KEY + " or other \"kill\"-named values "
+                            + "key found — fallback)";
+                }
                 System.out.println("  referenceId=" + unsignedKey + hashNote + " " + weightNote);
             }
         }
@@ -272,28 +289,35 @@ public final class WeaponAnalyticsPoc {
     /**
      * Bungie can emit a hash as a signed 32-bit JSON number even though the
      * true value, and the manifest's own table keys, are unsigned 32-bit.
-     * Converts the signed decimal text form back to its unsigned equivalent.
+     * {@link Integer#parseInt} bounds the input to the legitimate 32-bit
+     * range (throwing NumberFormatException otherwise, same as the caller's
+     * existing catch), and {@link Integer#toUnsignedString} reinterprets it
+     * as unsigned decimal text — the manifest table's own key format.
      */
     private static String toUnsignedHashKey(String rawReferenceIdText) {
-        long value = Long.parseLong(rawReferenceIdText);
-        if (value < 0) {
-            value += 4294967296L; // 2^32
-        }
-        return Long.toString(value);
+        return Integer.toUnsignedString(Integer.parseInt(rawReferenceIdText));
     }
 
     private static WeightResult findKillWeight(JsonNode valuesNode) {
+        JsonNode confirmedValue = valuesNode.path(CONFIRMED_KILL_COUNT_KEY).path("basic").path("value");
+        if (confirmedValue.isNumber()) {
+            return new WeightResult(confirmedValue.asDouble(), CONFIRMED_KILL_COUNT_KEY, true);
+        }
+
+        // Confirmed key absent (e.g. a schema variant this PoC hasn't seen) — fall back to the
+        // first other `values` key whose name merely contains "kill"; a documented heuristic,
+        // not a schema fact, and flagged as such wherever it's used.
         Iterator<String> fieldNames = valuesNode.fieldNames();
         while (fieldNames.hasNext()) {
             String key = fieldNames.next();
             if (key.toLowerCase(Locale.ROOT).contains("kill")) {
                 JsonNode value = valuesNode.path(key).path("basic").path("value");
                 if (value.isNumber()) {
-                    return new WeightResult(value.asDouble(), key);
+                    return new WeightResult(value.asDouble(), key, false);
                 }
             }
         }
-        return new WeightResult(1.0, null);
+        return new WeightResult(1.0, null, false);
     }
 
     private static String fetchManifestContentUrl(HttpClient client, String apiKey) throws Exception {
@@ -322,15 +346,19 @@ public final class WeaponAnalyticsPoc {
                 .build();
         HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() != 200) {
+            try {
+                response.body().close();
+            } catch (IOException ignored) {
+                // best-effort cleanup before surfacing the real failure below
+            }
             throw new IllegalStateException("Manifest content download failed: HTTP " + response.statusCode()
                     + " for " + contentUrl);
         }
 
         Map<String, JsonNode> resolved = new LinkedHashMap<>();
-        ObjectMapper mapper = new ObjectMapper();
         CappingInputStream capped = new CappingInputStream(response.body(), MANIFEST_BYTE_CAP);
 
-        try (JsonParser parser = new JsonFactory().createParser((InputStream) capped)) {
+        try (JsonParser parser = new JsonFactory().createParser(capped)) {
             if (parser.nextToken() != JsonToken.START_OBJECT) {
                 throw new IllegalStateException("Unexpected manifest content shape: did not start with an object.");
             }
@@ -349,7 +377,7 @@ public final class WeaponAnalyticsPoc {
                     parser.nextToken(); // move onto this entry's value
 
                     if (targetHashes.contains(hashKey)) {
-                        resolved.put(hashKey, mapper.readTree(parser));
+                        resolved.put(hashKey, MAPPER.readTree(parser));
                         if (resolved.size() == targetHashes.size()) {
                             break; // found everything we need
                         }
@@ -360,7 +388,8 @@ public final class WeaponAnalyticsPoc {
                 break; // done with the only table we need
             }
         } finally {
-            capped.close();
+            // parser's close() above already closed capped (and the underlying response body)
+            // via Jackson's default AUTO_CLOSE_SOURCE — nothing left to close here.
             System.out.println("Bytes read from manifest content download before stopping: " + capped.bytesRead());
         }
 
@@ -377,8 +406,12 @@ public final class WeaponAnalyticsPoc {
             String hash = entry.getKey();
             WeaponTally weaponTally = entry.getValue();
             String name = resolveName(hash, resolved);
-            System.out.println((i + 1) + ". " + name + " — weight=" + weaponTally.weight + " appearances="
-                    + weaponTally.appearances + " hash=" + hash + " (sample raw referenceId="
+            String provenance = weaponTally.confirmedAppearances == weaponTally.appearances
+                    ? "confirmed " + CONFIRMED_KILL_COUNT_KEY
+                    : weaponTally.confirmedAppearances + "/" + weaponTally.appearances + " appearances used the "
+                            + "confirmed key, rest used a fallback/heuristic weight — see per-weapon log above";
+            System.out.println((i + 1) + ". " + name + " — weight=" + weaponTally.weight + " [" + provenance
+                    + "] appearances=" + weaponTally.appearances + " hash=" + hash + " (sample raw referenceId="
                     + weaponTally.sampleRawReferenceId + ")");
         }
     }
@@ -483,7 +516,7 @@ public final class WeaponAnalyticsPoc {
                 .build();
         HttpResponse<String> noAuthResponse = sendWithThrottleRetry(client, noAuthRequest, url);
         if (noAuthResponse.statusCode() == 200) {
-            return new ObjectMapper().readTree(noAuthResponse.body());
+            return MAPPER.readTree(noAuthResponse.body());
         }
 
         System.out.println("API-key-only GetPostGameCarnageReport call for " + instanceId + " returned HTTP "
@@ -498,7 +531,7 @@ public final class WeaponAnalyticsPoc {
             throw new IllegalStateException("GetPostGameCarnageReport for " + instanceId + " failed even with "
                     + "the bearer token: HTTP " + withAuthResponse.statusCode() + " - " + withAuthResponse.body());
         }
-        return new ObjectMapper().readTree(withAuthResponse.body());
+        return MAPPER.readTree(withAuthResponse.body());
     }
 
     private static HttpResponse<String> sendWithThrottleRetry(HttpClient client, HttpRequest request, String url)
@@ -558,12 +591,12 @@ public final class WeaponAnalyticsPoc {
                     + " (access tokens expire after 1 hour — if this is a 401, re-run OAuthPoc for a fresh one) - "
                     + response.body());
         }
-        return new PageResult(new ObjectMapper().readTree(response.body()));
+        return new PageResult(MAPPER.readTree(response.body()));
     }
 
     private static long parseThrottleSeconds(String responseBody) {
         try {
-            return new ObjectMapper().readTree(responseBody).path("ThrottleSeconds").asLong(0);
+            return MAPPER.readTree(responseBody).path("ThrottleSeconds").asLong(0);
         } catch (Exception e) {
             return 0;
         }
@@ -591,7 +624,7 @@ public final class WeaponAnalyticsPoc {
             throw new IllegalStateException("Missing " + TOKENS_FILE.toAbsolutePath()
                     + " — run OAuthPoc first (step 1) to get an access token.");
         }
-        JsonNode tokens = new ObjectMapper().readTree(TOKENS_FILE.toFile());
+        JsonNode tokens = MAPPER.readTree(TOKENS_FILE.toFile());
         String accessToken = tokens.path("access_token").asText(null);
         if (accessToken == null) {
             throw new IllegalStateException(TOKENS_FILE.toAbsolutePath() + " has no access_token — re-run OAuthPoc.");
@@ -613,7 +646,7 @@ public final class WeaponAnalyticsPoc {
                     + " (access tokens expire after 1 hour — if this is a 401, re-run OAuthPoc for a fresh one) - "
                     + response.body());
         }
-        return new ObjectMapper().readTree(response.body());
+        return MAPPER.readTree(response.body());
     }
 
     /**
@@ -665,18 +698,23 @@ public final class WeaponAnalyticsPoc {
         private final String sampleRawReferenceId;
         private double weight = 0;
         private int appearances = 0;
+        private int confirmedAppearances = 0;
 
         WeaponTally(String sampleRawReferenceId) {
             this.sampleRawReferenceId = sampleRawReferenceId;
         }
 
-        void add(double w) {
+        void add(double w, boolean confirmed) {
             weight += w;
             appearances++;
+            if (confirmed) {
+                confirmedAppearances++;
+            }
         }
     }
 
-    private record WeightResult(double weight, String sourceKey) {
+    /** {@code confirmed} is true only when {@code sourceKey} is {@link #CONFIRMED_KILL_COUNT_KEY}. */
+    private record WeightResult(double weight, String sourceKey, boolean confirmed) {
     }
 
     private record Sample(String instanceId, String period) {
