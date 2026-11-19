@@ -64,7 +64,7 @@ Explore weapon usage data aggregated from ingested PGCRs:
 - Weapon usage by character.
 - Weapon usage comparisons (e.g., two weapons' kill counts side-by-side over the same date range).
 
-**Hard requirement, directly from the API_FEASIBILITY.md §4 critical finding:** this entire feature's reliability depends on whether `extended.weapons` is populated consistently across activity modes, which is **unconfirmed**. The PoC (Roadmap M0) must sample PGCRs across raid/strike/PvP/gambit before this feature's scope is locked. If some modes turn out not to carry weapon data, the UI must label analytics as scoped to the modes where data is confirmed present (e.g., "Weapon analytics currently available for: Raids, Strikes, PvP"), not silently under-report.
+**Resolved by the M0 PoC** (`API_FEASIBILITY.md` §4, `OPEN_QUESTIONS.md` #5): `extended.weapons` came back populated across all six sampled categories (Raid, Strike, PvP, Gambit, Dungeon, Trials of Osiris) on a real account. This was a one-account sample, so the `weapon_data_status` (`present`/`absent`/`unknown`) tracking from `DATABASE_DESIGN.md` stays in the design as a safeguard — if a future account or mode ever comes back absent/empty, the UI must label analytics as scoped to the modes where data is confirmed present (e.g., "Weapon analytics currently available for: Raids, Strikes, PvP"), not silently under-report.
 
 **Never:** fabricate a weapon statistic, or assume a weapon's absence from a given PGCR's `extended.weapons` array means "zero kills" rather than "no data" — the schema's `weapon_data_status` distinction (see `DATABASE_DESIGN.md`) must be surfaced, not collapsed, in the UI.
 

@@ -87,6 +87,8 @@ Directly quoted/paraphrased from the live Terms of Use ("BUNGIE.NET API TERMS AN
 
 **Unverified:** whether a separate Bungie.net account-level "hide my data from third-party apps" toggle exists distinct from per-component privacy — not confirmed from the pages retrieved.
 
+**PoC-observed (step 3, 2026-11-10):** `CharacterProgressions` (202) came back **present** for all three characters on the test account (154 progressions each, `privacy=2`) — the silent-omission behavior above wasn't triggered by this account/app's registered scopes. Still correct to design for it: the official docs describe omission as per-component, per-account behavior, which this one sample doesn't rule out for other accounts or components.
+
 ---
 
 ## 3. Activity History
@@ -97,7 +99,7 @@ Directly quoted/paraphrased from the live Terms of Use ("BUNGIE.NET API TERMS AN
 | Scope | API key only (public) | **Confirmed** (operation has no `security` requirement) |
 | Params | `count`, `mode` (DestinyActivityModeType — Raid, Strike, AllPvP, Gambit, Dungeon, TrialsOfOsiris, etc., ~90 enum values), `page` (0-indexed) | **Confirmed** |
 | Ordering | `activities[]` is explicitly documented as "most recent activity first" | **Confirmed** |
-| **Maximum history depth / retention window** | **No maximum `count`, page cap, or retention window is stated anywhere in official docs.** | **Unverified** — do not promise "full history" in product copy until the PoC empirically tests this (walk pages until an empty page or a known boundary is hit) |
+| **Maximum history depth / retention window** | No numeric cap, page limit, or retention window is stated in official docs, **and the M0 PoC found none in practice either**: a real account (92,676 minutes played) walked to its full history — 23 page fetches, 5,453 activities, 2017-09-10 to 2026-11-01 — terminating naturally when an otherwise-200 response's `activities` key was entirely absent (not an empty array), with zero 429s. | **Confirmed (PoC-observed, one account, 2026-11-14)** — still only one account's result; don't promise a universal "full history" guarantee, but the walk-until-boundary design is validated |
 | Per-activity data returned | Lightweight summary only: `period`, activity reference/director hashes, `instanceId`, `mode`/`modes[]`, `isPrivate`, membership type, and a generic per-character `values` stats dictionary. **No weapon data. No other participants. No win/loss standing.** | **Confirmed** (`DestinyHistoricalStatsPeriodGroup` schema has no `extended` field) |
 
 **Architectural consequence:** `GetActivityHistory` alone can drive "list of past activities" and whatever stats live in its generic `values` dict, but **cannot** power weapon analytics, win/loss display, or full-match context — those require a PGCR per activity (Section 4).
@@ -113,8 +115,8 @@ Directly quoted/paraphrased from the live Terms of Use ("BUNGIE.NET API TERMS AN
 | Bulk/batch fetch | **Does not exist.** One `activityId` per HTTP call, no alternative. | **Confirmed** |
 | Retention / purge policy | No statement anywhere in official docs about how long PGCRs remain fetchable, or whether Bungie purges old ones. | **Unverified** — design for prompt ingestion rather than assuming arbitrary backfill is always possible |
 | Per-player fields | `DestinyPostGameCarnageReportEntry`: `standing` (win/loss/placement — its own top-level field), `score`, `player` (identity/class/race/light/clan/emblem), `characterId`, `values` (generic stat dict), `extended` (weapon/scoreboard data) | **Confirmed** (schema structure); exact stat-key strings inside the generic `values` dict are **not** enumerated on the schema pages — **Unverified (partial)** |
-| **Weapon usage data** | `extended.weapons[]` → array of `DestinyHistoricalWeaponStats { referenceId, values }`. `referenceId` maps to `DestinyInventoryItemDefinition` for the weapon. Container structure is officially confirmed. | **Confirmed** (structure); exact `values` key names inside it — **Unverified (partial)** |
-| **Weapon data coverage across activity types** | No official statement confirms or denies whether `extended.weapons` is populated identically across PvP, PvE, raids, and dungeons. | **Unverified — critical open risk.** Must be empirically sampled across modes during the PoC (Roadmap M0) before Weapon Analytics scope is finalized |
+| **Weapon usage data** | `extended.weapons[]` → array of `DestinyHistoricalWeaponStats { referenceId, values }`. `referenceId` maps to `DestinyInventoryItemDefinition` for the weapon. Container structure is officially confirmed. | **Confirmed** (structure and, for `activity_weapon_usage.values`, key names: `uniqueWeaponKills`, `uniqueWeaponPrecisionKills`, `uniqueWeaponKillsPrecisionKills` — PoC-observed across all six sampled modes, 2026-11-17) |
+| **Weapon data coverage across activity types** | No official statement exists either way, but the M0 PoC sampled one PGCR each of Raid, Strike, PvP, Gambit, Dungeon, and Trials of Osiris from a real account/character and found `extended.weapons` **populated in all six** — none absent, none empty. | **Confirmed (PoC-observed, one account/character, 2026-11-17)** — critical risk resolved for this sample; `weapon_data_status` tracking stays in the design as a safeguard for other accounts/modes |
 | Subclass / super used | **Not present in any PGCR schema checked** (`DestinyPlayer`, entry, extended data) — only class/race/gender/light/clan/emblem. Ability-kill counts (grenade/melee/super kills) *might* exist inside the generic `values` dict, but the specific keys weren't enumerated in official schema docs. | **Unverified** |
 
 ### GetActivityHistory vs. PGCR — what's "free" vs. what costs an extra call
@@ -138,7 +140,7 @@ Directly quoted/paraphrased from the live Terms of Use ("BUNGIE.NET API TERMS AN
 | Stable manifest path | `jsonWorldContentPaths` — one full JSON file per locale. Safe to depend on. | **Confirmed** |
 | Volatile manifest path | `jsonWorldComponentContentPaths` — split per definition type. Bungie's own docs explicitly warn: **"unsafe and subject to change — do not depend on data in these files staying around long-term."** | **Confirmed** |
 | `mobileWorldContentPaths` | No official description found. The common belief it's a zipped SQLite file is **not confirmed** by official docs retrieved. | **Unverified** |
-| Manifest update cadence / file size | Not documented anywhere official. | **Unverified** |
+| Manifest update cadence / file size | Not documented anywhere official. **PoC-observed (step 7, 2026-11-19):** the English `jsonWorldContentPaths` world-content file is large enough that streaming it to resolve 11 target weapon hashes read ~230MB before all 11 were found — confirms it's not a small document; update cadence is still unobserved. | **Unverified (cadence); file-size lower bound confirmed via PoC** |
 | Weapon definition fields | `DestinyInventoryItemDefinition` provides name, icon, weapon type/category, damage type, intrinsic perks, slot/sockets. | **Confirmed** |
 | **Aggregate weapon-usage endpoint** | `Destiny2.GetUniqueWeaponHistory` exists and is official, but its own description promises coverage only of **exotic weapons** — not a general substitute for full weapon-usage stats. | **Confirmed (scope-limited)** |
 | **Implication** | Full per-weapon analytics across all weapon tiers (not just exotics) has **no cheaper official path** than aggregating PGCRs ourselves over time, as described in Section 4. | — |
@@ -179,12 +181,14 @@ Per the original brief's constraints, and confirmed by this research finding no 
 
 ## Proof-of-concept requirements (must pass before Phase A scope is finalized)
 
-1. Successful OAuth authorization-code round trip (authorize → callback → token exchange → stored, encrypted tokens).
-2. `GetMembershipDataForCurrentUser` + `GetLinkedProfiles` against a real, cross-save-enabled account.
-3. `GetProfile` character retrieval, including observing at least one component that comes back absent/privacy-gated, to confirm the "silent omission" behavior.
-4. `GetActivityHistory` paginated walk for a character with substantial history, to empirically observe whether/where it terminates (confirms or refutes Section 3's "unverified depth" risk).
-5. `GetPostGameCarnageReport` fetched for **at least one activity of each of:** a raid, a strike, a PvP match, and (if accessible) Gambit/Trials/Dungeon — specifically to compare `extended.weapons` population across modes (resolves Section 4's critical open risk).
-6. Manifest download and successful resolution of at least one `referenceId` from a fetched PGCR into a human-readable weapon name via `DestinyInventoryItemDefinition`.
-7. A small sample analytics result computed from the above (e.g., "top 3 weapons used across these N activities") to validate the whole pipeline end-to-end.
+**Status: all seven items below have been completed against a real account (2026-11-09 to 2026-11-19, M0 PoC steps 1–7). Findings are folded back into the table rows above and into `OPEN_QUESTIONS.md` #4/#5/#7.**
 
-Any PoC finding that contradicts an "Unverified" entry above must update this document and, if it changes feasibility, the Product Requirements and Roadmap documents before Phase A implementation proceeds past M0.
+1. [x] Successful OAuth authorization-code round trip (authorize → callback → token exchange → stored, encrypted tokens). Token lifetimes matched the documented example exactly (`expires_in=3600`, `refresh_expires_in=7776000`).
+2. [x] `GetMembershipDataForCurrentUser` + `GetLinkedProfiles` against a real account.
+3. [x] `GetProfile` character retrieval, including probing a component that can come back absent/privacy-gated. `CharacterProgressions` came back present (not gated) on the test account — the silent-omission behavior itself is unchanged as a design requirement, just not triggered by this sample.
+4. [x] `GetActivityHistory` paginated walk for a character with substantial history. Terminated naturally after 23 page fetches / 5,453 activities, no cap encountered (date range 2017-09-10 to 2026-11-01).
+5. [x] `GetPostGameCarnageReport` fetched for at least one activity of each required category: Raid, Strike, PvP, Gambit, Dungeon, and Trials of Osiris — all six retrieved successfully, and `extended.weapons` came back populated in all six.
+6. [x] Manifest download and successful resolution of `referenceId`s from fetched PGCRs into human-readable weapon names. 11/11 target hashes resolved via `jsonWorldContentPaths`, streamed rather than fully materialized.
+7. [x] A small sample analytics result computed from the above: top weapons by weighted appearance across sampled activities — Vex Mythoclast, Positive Outlook, Fighting Lion.
+
+Any further PoC or implementation-time finding that contradicts a Confirmed/Unverified entry above should still update this document and, if it changes feasibility, the Product Requirements and Roadmap documents, before relying on the affected capability.
