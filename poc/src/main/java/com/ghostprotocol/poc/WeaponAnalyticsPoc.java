@@ -288,14 +288,22 @@ public final class WeaponAnalyticsPoc {
 
     /**
      * Bungie can emit a hash as a signed 32-bit JSON number even though the
-     * true value, and the manifest's own table keys, are unsigned 32-bit.
-     * {@link Integer#parseInt} bounds the input to the legitimate 32-bit
-     * range (throwing NumberFormatException otherwise, same as the caller's
-     * existing catch), and {@link Integer#toUnsignedString} reinterprets it
-     * as unsigned decimal text — the manifest table's own key format.
+     * true value, and the manifest's own table keys, are unsigned 32-bit —
+     * so a legitimate hash's decimal text can be either a small negative
+     * number (signed form) or a large positive one up to 2^32-1 (unsigned
+     * form already); {@link Integer#parseInt} alone would wrongly reject the
+     * latter, since it only accepts signed-int-range text. Parse as a long,
+     * reject anything outside the union of both 32-bit representations
+     * (same NumberFormatException the caller already catches), then narrow
+     * to int (reinterpreting the bit pattern) and render as unsigned decimal
+     * text — the manifest table's own key format.
      */
     private static String toUnsignedHashKey(String rawReferenceIdText) {
-        return Integer.toUnsignedString(Integer.parseInt(rawReferenceIdText));
+        long value = Long.parseLong(rawReferenceIdText);
+        if (value < Integer.MIN_VALUE || value > 4294967295L) {
+            throw new NumberFormatException(rawReferenceIdText + " is outside the representable 32-bit hash range");
+        }
+        return Integer.toUnsignedString((int) value);
     }
 
     private static WeightResult findKillWeight(JsonNode valuesNode) {
