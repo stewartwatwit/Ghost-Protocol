@@ -2,7 +2,7 @@
 
 This roadmap follows the milestone shape from the original project brief, adjusted in two places by this session's Bungie API research (`API_FEASIBILITY.md`): M0 is expanded into a concrete validation checklist for every "Unverified" finding, and M1 gains an explicit manual step the user must perform.
 
-## M0 — Research and API Feasibility *(this phase — now complete, pending the PoC)*
+## M0 — Research and API Feasibility *(complete as of 2026-11-19)*
 
 - [x] Review official Bungie API documentation and repository.
 - [x] Investigate authentication, scopes, rate limits, ToS.
@@ -10,17 +10,17 @@ This roadmap follows the milestone shape from the original project brief, adjust
 - [x] Investigate activity history and PGCR structure, especially weapon-data coverage.
 - [x] Investigate manifest/weapon definitions and Phase B item/inventory feasibility.
 - [x] Document findings in `API_FEASIBILITY.md`, distinguishing Confirmed / Unverified / Assumption.
-- [ ] **Build the minimal proof-of-concept** (first actual code written, ahead of full implementation) that:
-  1. Completes a real OAuth authorization-code round trip against a registered Bungie application.
-  2. Retrieves a linked Destiny account via `GetLinkedProfiles`, including a cross-save-enabled account if available.
-  3. Retrieves Guardian characters via `GetProfile`.
-  4. Retrieves recent activity history via `GetActivityHistory` and walks pages far enough to observe whether/where it terminates.
-  5. Retrieves at least one PGCR per activity type sampled: raid, strike, PvP, and (if accessible) Gambit/Trials/Dungeon.
-  6. Parses each PGCR and specifically records whether `extended.weapons` is populated for that mode.
-  7. Resolves at least one weapon `referenceId` via the manifest and produces one small sample analytics result (e.g., top weapons across the sampled activities).
-- [ ] **Update `API_FEASIBILITY.md` and `PRODUCT_REQUIREMENTS.md`** with the PoC's actual findings before proceeding past this milestone. If any Unverified item turns out more limited than hoped (e.g., weapon data missing in some modes, or history depth capped lower than expected), the Weapon Analytics and Activity Explorer requirements are adjusted here, not discovered mid-build.
+- [x] **Build the minimal proof-of-concept** (first actual code written, ahead of full implementation) that:
+  1. [x] Completes a real OAuth authorization-code round trip against a registered Bungie application.
+  2. [x] Retrieves a linked Destiny account via `GetLinkedProfiles`.
+  3. [x] Retrieves Guardian characters via `GetProfile`.
+  4. [x] Retrieves recent activity history via `GetActivityHistory` and walks pages far enough to observe whether/where it terminates. Terminated naturally after 23 page fetches / 5,453 activities — no cap encountered.
+  5. [x] Retrieves at least one PGCR per activity type sampled: raid, strike, PvP, Gambit, Trials of Osiris, and Dungeon (all six, not just "if accessible").
+  6. [x] Parses each PGCR and specifically records whether `extended.weapons` is populated for that mode. All six modes came back populated.
+  7. [x] Resolves at least one weapon `referenceId` via the manifest and produces one small sample analytics result. 11/11 target hashes resolved; top weapons: Vex Mythoclast, Positive Outlook, Fighting Lion.
+- [x] **Update `API_FEASIBILITY.md` and `PRODUCT_REQUIREMENTS.md`** with the PoC's actual findings. No Unverified item turned out more limited than hoped — all six activity-type samples and the full-history walk came back positive, so Weapon Analytics and Activity Explorer scope are unchanged from the original plan.
 
-**M0 does not proceed to M1 until the user has reviewed the PoC's findings.**
+**M0 findings reviewed; proceeding to M1.**
 
 ## M1 — Architecture and Development Environment
 
