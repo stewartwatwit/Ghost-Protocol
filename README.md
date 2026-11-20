@@ -43,3 +43,4 @@ Every feature in this project is scoped to what the **official** Bungie API docu
 - [`docs/DEVELOPMENT_ROADMAP.md`](docs/DEVELOPMENT_ROADMAP.md) — milestones M0–M10
 - [`docs/DEPLOYMENT_PLAN.md`](docs/DEPLOYMENT_PLAN.md) — hosting, CI/CD, demo mode, secrets
 - [`docs/OPEN_QUESTIONS.md`](docs/OPEN_QUESTIONS.md) — unresolved items requiring input or PoC validation
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) — milestone-level history of how/why the planning docs above have changed
