@@ -50,14 +50,19 @@ import java.util.Set;
  * every field/entry we don't need is skipped via {@code skipChildren()},
  * and only the handful of target weapon hashes get materialized. The
  * download is also wrapped in a byte-size cap, per the same architecture
- * note, since manifest file size is flagged "Unverified".
+ * note — manifest update cadence is still unverified, but a real run of
+ * this file confirmed a lower bound on content size (~230MB streamed
+ * before all target hashes were found; see API_FEASIBILITY.md section 5).
  *
  * Hash-sign note: Bungie can emit a hash/referenceId as a signed 32-bit JSON
  * number even though the true value (and the manifest's own table keys) are
  * unsigned 32-bit. Every referenceId is normalized to its unsigned decimal
  * form (see {@link #toUnsignedHashKey}) before being used as a tally key or
  * a manifest lookup key, and the raw vs. normalized text is logged whenever
- * they differ so a real run can confirm whether this actually occurs.
+ * they differ. Real runs have only ever observed the "large positive text
+ * exceeding Integer.MAX_VALUE" case (e.g. a referenceId of 4289226715), not
+ * an actual negative/sign-wrapped referenceId — the normalization handles
+ * both, but only the former has been confirmed to occur in practice.
  *
  * The per-weapon {@code values} dict's key names were unconfirmed as of
  * OPEN_QUESTIONS.md #7, but step 6's real run has since confirmed them (see
@@ -98,6 +103,7 @@ public final class WeaponAnalyticsPoc {
     private static final long MANIFEST_BYTE_CAP = 500_000_000L; // ~500MB — generous but finite; see class doc.
     private static final Duration MANIFEST_REQUEST_TIMEOUT = Duration.ofMinutes(10);
     private static final int TOP_N = 3;
+    private static final long UNSIGNED_32BIT_MAX = 4294967295L; // 2^32 - 1
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private enum ActivityCategory {
@@ -300,7 +306,7 @@ public final class WeaponAnalyticsPoc {
      */
     private static String toUnsignedHashKey(String rawReferenceIdText) {
         long value = Long.parseLong(rawReferenceIdText);
-        if (value < Integer.MIN_VALUE || value > 4294967295L) {
+        if (value < Integer.MIN_VALUE || value > UNSIGNED_32BIT_MAX) {
             throw new NumberFormatException(rawReferenceIdText + " is outside the representable 32-bit hash range");
         }
         return Integer.toUnsignedString((int) value);
