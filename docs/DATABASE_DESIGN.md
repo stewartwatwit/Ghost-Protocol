@@ -99,6 +99,8 @@ One row per **Bungie activity instance**, shared across all participants.
 
 Indexes: `(mode, period DESC)` for mode-filtered recent-activity queries; `pgcr_status` for the retry sweep job.
 
+**Trials of Osiris filtering note:** Bungie tags Trials of Osiris activities with both `mode=5` and `mode=84` in the `modes[]` array simultaneously, per a dual-tagging finding from M0 development work. (The `AllPvP`/`TrialsOfOsiris` names for 5/84 carry the same "Unverified against an official source" caveat as `OPEN_QUESTIONS.md` #14 — this note is about the dual-tagging *behavior*, not a fresh confirmation of the integer→name mapping.) Filtering logic must inspect `modes[]` — not just the singular `mode` column — so Trials activities stay independently filterable without being excluded from general AllPvP views. Which value the singular `mode` column ends up storing for a Trials match is an implementation detail to confirm when the `bungie`→`activity` mapper is built in M2, not before.
+
 ### `activity_participant`
 Per-player-per-activity stats.
 | Column | Type | Notes |
