@@ -78,7 +78,7 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 ## Project workflow rules
 
 - **PR per step**: each implementation step gets its own branch + PR. Never commit straight to `main` (applies from 2026-11-09 onward).
-- **Write → run → review**: Claude writes the code, the user runs it, then a subagent checks edge cases/vulnerabilities before opening the PR.
+- **Write → run → review**: Claude writes the code, the user runs it, then the user manually spins up a review agent to check edge cases/vulnerabilities before opening the PR. This is not something the active working agent triggers on its own.
 - **PR closing comments**: skip the standard `.env`/`tokens.json`-gitignore boilerplate unless the PR actually touched that area.
 - **Routine git/nav commands**: run unasked (`git status`, `git log`, `cd`, etc.). Still confirm before risky operations (force-push, `reset --hard`, etc.).
 - **Obsidian vault**: once this repo has a `.gitignore`, add `Ghost Protocol/` (the vault folder) to it.
