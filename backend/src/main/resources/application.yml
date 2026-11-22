@@ -1,0 +1,22 @@
+server:
+  port: 8273
+
+spring:
+  application:
+    name: backend
+  # No real database until M1 step 4 (Neon Postgres connection). Excluded
+  # here so `mvn spring-boot:run` starts cleanly with the JPA dependency
+  # wired but inactive; step 4 removes this exclusion.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only health is public per SYSTEM_ARCHITECTURE.md's Security
+        # Boundaries — every other Actuator endpoint stays disabled.
+        include: health
