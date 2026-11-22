@@ -118,6 +118,8 @@ Index: `character_id` (drives most analytics reads).
 
 **Why JSONB + promoted columns, not a fully normalized stats table:** Bungie's per-character `values` dict is a loosely-typed, mode-dependent bag that has grown over time without a versioned contract (`API_FEASIBILITY.md` §4). Fully normalizing every possible key into columns means a schema migration every time Bungie adds a stat, with most columns null for most modes. JSONB keeps ingestion simple and future-proof; the handful of stats that genuinely need fast/indexable cross-mode queries (kills, deaths, assists, score) are *also* promoted to typed columns, giving the best of both: no migration churn for the long tail, and real indexes for the common dashboard path.
 
+**Confirmed field sourcing (gap-closure PoC step 8, 2026-11-21):** `kills`/`deaths`/`assists`/`score`/`completed` all come from `values.<key>.basic.value` in the raw PGCR entry, not from any top-level entry field — and Bungie returns every one of these as a JSON floating-point number even though they're semantically integer/boolean (`kills: 475.0`, `completed: 1.0`), so the `activity` module's mapping layer must round/cast explicitly rather than assume an integral JSON type. `standing` is the one exception: it's genuinely a top-level entry field, confirmed present (defaulting to `0`) even for solo Raid/Strike/Dungeon activities with no opponent to stand against — a same-named `values.standing` key also exists, but only in team-based modes (PvP/Gambit/Trials), and should be ignored in favor of the always-present top-level field.
+
 ### `weapon_definition`
 Manifest-derived, static game data — physically separate from user data.
 | Column | Type | Notes |

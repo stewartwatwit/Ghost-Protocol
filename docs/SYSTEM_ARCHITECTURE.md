@@ -33,7 +33,7 @@ Cross-cutting value types (`BungieMembershipType` enum, UTC `Instant` wrappers),
 The **only** module permitted to speak HTTP to `bungie.net`. Owns:
 - OAuth token exchange/refresh HTTP calls.
 - `X-API-Key` header injection on every outbound request.
-- All raw request/response DTOs (Jackson-annotated, mirroring Bungie's JSON exactly — including every nullable/optional component field).
+- All raw request/response DTOs (Jackson-annotated, mirroring Bungie's JSON exactly — including every nullable/optional component field). This includes the generic `values` stat dicts on activity/PGCR entries: every entry comes back as a JSON floating-point number regardless of semantic type (confirmed via the M0 PoC's gap-closure pass — int/bool-semantic stats like `kills`/`completed` still arrive as e.g. `475.0`/`1.0`), so these DTOs expose doubles and leave rounding/casting to the mapper rather than assuming an integral JSON type from Bungie.
 - Generic retry/backoff logic keyed off HTTP 429 and the `ThrottleSeconds` envelope field.
 - Manifest file download/parsing.
 
