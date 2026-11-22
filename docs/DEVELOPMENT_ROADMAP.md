@@ -25,9 +25,9 @@ This roadmap follows the milestone shape from the original project brief, adjust
 ## M1 — Architecture and Development Environment
 
 - [x] **Manual step (user-performed): register the Bungie application** at `bungie.net/en/Application` — confidential OAuth client, redirect URI pointing at `https://localhost:8080/callback` for local development, scope `ReadDestinyInventoryAndVault` (basic profile read is automatic). Done 2026-11-09, ahead of schedule as an M0 PoC prerequisite. **Confirmed finding:** Bungie's form rejects `http` redirect URIs outright ("must be a fully qualified URL using any scheme except http") — even for localhost — so the PoC's local callback listener must run over HTTPS via a locally-trusted cert (`mkcert`), not plain HTTP. **Note:** the redirect URI will need to be updated (or a second application registered) once production deployment begins at M9, since Bungie requires an exact match and doesn't support setting it dynamically per request.
-- [ ] Establish the Spring Boot project structure matching the module boundaries in `SYSTEM_ARCHITECTURE.md`.
-- [ ] Configure Spring Boot, Spring Security, Spring Data JPA/Hibernate, Maven.
-- [ ] Configure the React + TypeScript + Vite frontend project, Tailwind CSS.
+- [x] Establish the Spring Boot project structure matching the module boundaries in `SYSTEM_ARCHITECTURE.md`. Done via [PR #11](https://github.com/stewartwatwit/Ghost-Protocol/pull/11), merged 2026-11-22.
+- [x] Configure Spring Boot, Spring Security, Spring Data JPA/Hibernate, Maven. Done via [PR #11](https://github.com/stewartwatwit/Ghost-Protocol/pull/11), merged 2026-11-22 — no business logic or DB connection yet, JPA autoconfiguration excluded until step 4 below.
+- [ ] Configure the React + TypeScript + Vite frontend project, Tailwind CSS. **In progress:** scaffold written (Vite + React 19 + TS + Tailwind v4, minimal placeholder page, no routing/API calls yet) — [PR #12](https://github.com/stewartwatwit/Ghost-Protocol/pull/12) open, awaiting review/merge.
 - [ ] Configure Neon PostgreSQL connection (dev + prod), with HikariCP settings tolerant of free-tier autosuspend cold-resume (see `DEPLOYMENT_PLAN.md`).
 - [ ] Configure Flyway and commit `V1__initial_schema.sql` per `DATABASE_DESIGN.md`.
 - [ ] Configure Docker Compose for local development (backend + frontend + local Postgres, so local dev doesn't depend on live Neon).
