@@ -140,3 +140,21 @@ Findings folded into `OPEN_QUESTIONS.md` #6/#7/#14, `API_FEASIBILITY.md`
 sections 3 (mode-code caveat) and 4 (retention, values dict),
 `DATABASE_DESIGN.md` (field sourcing + float-cast note), and
 `SYSTEM_ARCHITECTURE.md` (`bungie` module DTO-mapping note).
+
+## Step 1 (M1) — Vault findings folded into docs
+
+Two confirmed API-behavior findings from the Obsidian vault (local-only,
+gitignored, never previously written into tracked docs) folded in before
+M1 scaffolding began:
+- `API_FEASIBILITY.md` §4 — PGCR's HTTPS→HTTP redirect from `www.bungie.net`
+  to `stats.bungie.net`.
+- `SYSTEM_ARCHITECTURE.md` (`bungie` module) — same redirect, as an
+  implementation directive.
+- `DATABASE_DESIGN.md` (`activity` table) — Trials of Osiris dual
+  `mode=5`/`mode=84` tagging and the filtering-semantics guidance that
+  follows from it.
+
+Context note: M0's PGCR sampling (steps 5-8) deliberately used the account's
+highest-playtime character, since it was known to cover all six sampled
+activity types. Not a gap — multi-character ingestion is already handled by
+`SYSTEM_ARCHITECTURE.md`'s per-character `sync_checkpoint` design.
