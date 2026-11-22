@@ -82,3 +82,4 @@ These guidelines are working if: fewer unnecessary changes in diffs, fewer rewri
 - **PR closing comments**: skip the standard `.env`/`tokens.json`-gitignore boilerplate unless the PR actually touched that area.
 - **Routine git/nav commands**: run unasked (`git status`, `git log`, `cd`, etc.). Still confirm before risky operations (force-push, `reset --hard`, etc.).
 - **Obsidian vault**: once this repo has a `.gitignore`, add `Ghost Protocol/` (the vault folder) to it.
+- **Keep the roadmap current**: after each step lands (PR opened/merged), update `docs/DEVELOPMENT_ROADMAP.md` to check off the completed item(s) and note in-progress ones (PR link + what's left), so the doc always reflects the actual step the project is on.
