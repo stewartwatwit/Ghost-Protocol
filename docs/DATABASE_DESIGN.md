@@ -8,7 +8,7 @@ Target: PostgreSQL (Neon, managed). Migrations via Flyway.
 - Every Bungie-external ID is stored in its own column with a `UNIQUE` constraint.
 - Every timestamp column is `TIMESTAMPTZ`, stored in UTC (`created_at`/`updated_at` on every table, plus domain timestamps like `period`).
 - Static, manifest-derived tables (`weapon_definition`, `manifest_version`) are physically separate from user-specific tables, so a manifest refresh is a bulk operation untangled from user-data lifecycle.
-- No table stores raw, unprocessed Bungie JSON payloads indefinitely — only the normalized minimum actually queried. Full PGCR/activity-history JSON is discarded after mapping; it's re-fetchable from Bungie by `bungie_instance_id` on demand (modulo the undocumented PGCR-retention risk noted in `API_FEASIBILITY.md` §4 — mitigated by prompt ingestion, not by raw-payload hoarding).
+- No table stores raw, unprocessed Bungie JSON payloads indefinitely — only the normalized minimum actually queried. Full PGCR/activity-history JSON is discarded after mapping; it's re-fetchable from Bungie by `bungie_instance_id` on demand (modulo the PGCR-retention risk noted in `API_FEASIBILITY.md` §4 — no official retention guarantee exists even though a ~9-year lower bound is now PoC-confirmed; mitigated by prompt ingestion, not by raw-payload hoarding).
 
 ## Entity Relationship Overview
 

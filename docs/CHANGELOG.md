@@ -97,8 +97,7 @@ missing weapon data, no history cap was hit, manifest resolution worked —
 so Weapon Analytics and Activity Explorer scope are unchanged from the
 original plan. This was a documentation catch-up, not a scope change.
 
-## Step 8 (gap closure, post-M0 review, pre-M1) — PGCR retention and
-## participant-values enumeration
+## Step 8 (gap closure, post-M0 review, pre-M1) — PGCR retention and participant-values enumeration
 
 Before starting M1, a review of the M0 PoC and planning docs together
 (not a new roadmap milestone — a gap-closure pass) found two

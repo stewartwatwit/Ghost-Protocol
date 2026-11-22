@@ -57,7 +57,13 @@ public final class ActivityRetentionPoc {
         String apiKey = env.getRequired("BUNGIE_API_KEY");
         String accessToken = loadAccessToken();
 
-        HttpClient client = HttpClient.newHttpClient();
+        // .followRedirects(NORMAL): www.bungie.net 301-redirects some endpoints to
+        // plain-http stats.bungie.net, which Redirect.NORMAL correctly refuses to
+        // follow (HTTPS->HTTP downgrade) — same reasoning as the sibling PoC steps
+        // that call stats.bungie.net directly (PostGameCarnageReportPoc, WeaponDataPoc).
+        HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
 
         System.out.println("=== GetMembershipsForCurrentUser ===");
         JsonNode memberships = get(client, MEMBERSHIPS_URL, accessToken, apiKey);
@@ -107,18 +113,55 @@ public final class ActivityRetentionPoc {
         System.out.println("=== Result ===");
         System.out.println("instanceId=" + oldest.instanceId + " period=" + oldest.period);
         System.out.println("HTTP status: " + probe.statusCode());
-        if (probe.statusCode() == 200) {
-            System.out.println("PGCR fetched successfully. This establishes a LOWER BOUND only: PGCRs remain "
-                    + "fetchable at least back to " + oldest.period + " on this one account. It does NOT prove "
-                    + "there is no retention window — only that this account's oldest activity hasn't fallen "
-                    + "outside it (if one exists at all).");
+        if (probe.statusCode() == 429) {
+            // Distinct from a genuine fetch failure: sendWithThrottleRetry already
+            // exhausted MAX_RETRIES_PER_PAGE and gave up, so this is rate-limiting,
+            // not evidence either way about retention — conflating the two would
+            // misreport throttling as a purge-window signal.
+            System.out.println("Persistent HTTP 429 even after retries — INCONCLUSIVE, not evidence of a "
+                    + "retention/purge window. This is rate-limiting, not Bungie reporting the PGCR missing. "
+                    + "Re-run later to get an actual signal.");
+        } else if (probe.statusCode() == 200 && isSuccessfulPgcrBody(probe.body())) {
+            System.out.println("PGCR fetched successfully (verified the response envelope, not just HTTP 200). "
+                    + "This establishes a LOWER BOUND only: PGCRs remain fetchable at least back to " + oldest.period
+                    + " on this one account. It does NOT prove there is no retention window — only that this "
+                    + "account's oldest activity hasn't fallen outside it (if one exists at all).");
+        } else if (probe.statusCode() == 200) {
+            // Bungie can return HTTP 200 with an app-level error in the envelope
+            // (ErrorCode != 1, or no populated Response.entries) — don't let a
+            // bare status-code check report that as success.
+            System.out.println("HTTP 200, but the response envelope doesn't look like a successful PGCR "
+                    + "(missing/non-1 ErrorCode or no Response.entries) — treating this as a POSITIVE SIGNAL that "
+                    + "a retention/purge window may exist, same as a non-200 failure would be. Body: " + probe.body());
         } else {
-            System.out.println("PGCR fetch failed for the oldest known activity. This IS a positive signal that "
-                    + "a retention/purge window may exist — body: " + probe.body());
+            System.out.println("PGCR fetch failed for the oldest known activity (non-429, non-200). This IS a "
+                    + "positive signal that a retention/purge window may exist — body: " + probe.body());
         }
         System.out.println();
         System.out.println("Resolves OPEN_QUESTIONS.md #6 to the extent a single account's single data point can; "
                 + "still not a general guarantee for every account/activity age.");
+    }
+
+    /**
+     * A 200 status code alone doesn't guarantee Bungie actually served the
+     * PGCR — the envelope can carry an app-level error (non-1 {@code
+     * ErrorCode}) even on HTTP 200. Require both a successful-looking
+     * {@code ErrorCode} (tolerating its absence, since not every Bungie
+     * response includes it) AND a populated {@code Response.entries} array
+     * before calling this a genuine retention-probe success.
+     */
+    private static boolean isSuccessfulPgcrBody(String body) {
+        try {
+            JsonNode root = new ObjectMapper().readTree(body);
+            JsonNode errorCode = root.path("ErrorCode");
+            if (!errorCode.isMissingNode() && errorCode.asInt(1) != 1) {
+                return false;
+            }
+            JsonNode entries = root.path("Response").path("entries");
+            return entries.isArray() && !entries.isEmpty();
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private static OldestActivity findOldestActivity(HttpClient client, String accessToken, String apiKey,

@@ -78,7 +78,13 @@ public final class ParticipantValuesPoc {
         String apiKey = env.getRequired("BUNGIE_API_KEY");
         String accessToken = loadAccessToken();
 
-        HttpClient client = HttpClient.newHttpClient();
+        // .followRedirects(NORMAL): www.bungie.net 301-redirects some endpoints to
+        // plain-http stats.bungie.net, which Redirect.NORMAL correctly refuses to
+        // follow (HTTPS->HTTP downgrade) — same reasoning as the sibling PoC steps
+        // that call stats.bungie.net directly (PostGameCarnageReportPoc, WeaponDataPoc).
+        HttpClient client = HttpClient.newBuilder()
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
 
         System.out.println("=== GetMembershipsForCurrentUser ===");
         JsonNode memberships = get(client, MEMBERSHIPS_URL, accessToken, apiKey);
@@ -131,6 +137,7 @@ public final class ParticipantValuesPoc {
         System.out.println("All six categories found. Fetching PGCRs and inspecting entry.values...");
 
         Set<String> observedValueKeys = new LinkedHashSet<>();
+        int sampledCategoriesWithValues = 0;
 
         for (ActivityCategory category : ActivityCategory.values()) {
             Sample sample = samples.get(category);
@@ -146,14 +153,14 @@ public final class ParticipantValuesPoc {
                 continue;
             }
 
-            // Per API_FEASIBILITY.md section 4's schema note, `standing`/`completed`
-            // live directly on the entry, siblings of `values`/`extended` — not
-            // inside the generic `values` dict. Printed here to confirm that
-            // placement against real data, not just the schema page.
+            // Per API_FEASIBILITY.md section 4's schema note, `standing` is
+            // genuinely a top-level entry field, a sibling of `values`/`extended`
+            // — unlike `completed`, which real data confirms lives *inside*
+            // `values` (so it's printed once, by the generic loop below, not
+            // twice). Printed here to confirm that placement against real data,
+            // not just the schema page.
             JsonNode standing = ownEntry.path("standing");
-            JsonNode completed = ownEntry.path("values").path("completed").path("basic").path("value");
-            System.out.println("  top-level standing=" + (standing.isMissingNode() ? "(absent)" : standing.asText())
-                    + "  values.completed.basic.value=" + (completed.isMissingNode() ? "(absent)" : completed.asText()));
+            System.out.println("  top-level standing=" + (standing.isMissingNode() ? "(absent)" : standing.asText()));
 
             JsonNode values = ownEntry.path("values");
             if (!values.isObject() || values.isEmpty()) {
@@ -163,6 +170,7 @@ public final class ParticipantValuesPoc {
                 continue;
             }
 
+            sampledCategoriesWithValues++;
             Iterator<Map.Entry<String, JsonNode>> fields = values.fields();
             while (fields.hasNext()) {
                 Map.Entry<String, JsonNode> field = fields.next();
@@ -175,7 +183,9 @@ public final class ParticipantValuesPoc {
         }
 
         System.out.println();
-        System.out.println("=== Observed activity_participant.values key names (union across all sampled entries) ===");
+        System.out.println("=== Observed activity_participant.values key names (union across "
+                + sampledCategoriesWithValues + "/" + ActivityCategory.values().length
+                + " sampled entries with a populated values dict) ===");
         if (observedValueKeys.isEmpty()) {
             System.out.println("(none — no sampled entry yielded a populated values dict)");
         } else {
@@ -186,7 +196,7 @@ public final class ParticipantValuesPoc {
         System.out.println();
         System.out.println("Resolves OPEN_QUESTIONS.md #7's remaining half (activity_participant.values); "
                 + "the activity_weapon_usage.values half was already confirmed by step 6. One-account/character "
-                + "sample, same caveat as every other PoC finding.");
+                + "sample, own entry only (not teammates/opponents), same caveat as every other PoC finding.");
     }
 
     private static JsonNode findOwnEntry(JsonNode entries, String membershipId, String characterId) {
