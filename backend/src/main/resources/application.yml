@@ -4,14 +4,23 @@ server:
 spring:
   application:
     name: backend
-  # No real database until M1 step 4 (Neon Postgres connection). Excluded
-  # here so `mvn spring-boot:run` starts cleanly with the JPA dependency
-  # wired but inactive; step 4 removes this exclusion.
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+  # Connection itself (spring.datasource.url/username/password) is supplied
+  # via standard SPRING_DATASOURCE_* env vars, not hardcoded here — Neon for
+  # every environment per DEPLOYMENT_PLAN.md (a personal "dev" Neon
+  # project/branch locally until Docker Compose lands at M1 step 6, a
+  # separate Neon project in production). Neon's connection string uses the
+  # `postgresql://` scheme; SPRING_DATASOURCE_URL needs the JDBC form
+  # (`jdbc:postgresql://host/db?sslmode=require`) with user/password passed
+  # separately via SPRING_DATASOURCE_USERNAME/PASSWORD.
+  datasource:
+    hikari:
+      # Neon free tier autosuspends after 5 minutes idle (DEPLOYMENT_PLAN.md).
+      # Don't hold connections open across that gap, and fail fast rather than
+      # hand out a dead connection on cold-resume.
+      minimum-idle: 0
+      maximum-pool-size: 5
+      connection-timeout: 10000
+      validation-timeout: 5000
 
 management:
   endpoints:
