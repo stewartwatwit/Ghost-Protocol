@@ -19,8 +19,9 @@
   <!--
     M1 scaffolding: Spring Boot + Security + Data JPA wired, package-per-module
     structure matching SYSTEM_ARCHITECTURE.md's module boundaries. No business
-    logic, no Bungie API calls (M2+). JPA autoconfiguration is excluded in
-    application.yml until the real DB connection lands (M1 step 4).
+    logic, no Bungie API calls (M2+). Connects to Neon Postgres per
+    application.yml (M1 step 4); schema is still unmanaged until Flyway lands
+    (M1 step 5).
   -->
 
   <properties>
@@ -43,6 +44,11 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
     </dependency>
 
     <dependency>

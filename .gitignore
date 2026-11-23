@@ -12,3 +12,6 @@ poc/target/
 # Build artifacts
 *.class
 target/
+.neon
+node_modules/
+.env.local
